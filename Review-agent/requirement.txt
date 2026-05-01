@@ -13,3 +13,4 @@ langchain-deepseek
 langchain-groq
 langchain-tavily
 pygithub
+langchain-community
