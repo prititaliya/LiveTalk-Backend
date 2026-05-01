@@ -160,7 +160,8 @@ You must check that is there any existing API endpoint is changed in the code ch
                 You are an agent that checks whether the code comments provided in the review process have been addressed in the code changes.
                 Only Focus on the comments that are between <<COMMENT_START>> and <<COMMENT_END>> markers.
                 For each comment, analyze the code changes to determine if the comment has been addressed.
-                If a comment has been addressed, mark it as "Addressed". If it has not been addressed, mark it as "Not Addressed" and provide potential suggestions for improvement based on the comment."""
+                If a comment has been addressed, mark it as "Addressed". If it has not been addressed, mark it as "Not Addressed" and provide potential suggestions for improvement based on the comment.
+                     If Cross Reposetory Search took a place and some breaking change that can impact the current Frontend codebase is found, then you must also analyze the impact of that change based on the code comments and provide suggestions for improvement if needed. And for that you MUST INCLUDE that analysis in your review of the comments WITH WARNING EMOJI for better visibility and add what file on the frontend codebase is impacted by that change if possible based on the information you have."""
             )
         )
         human_message = HumanMessage(

@@ -5,10 +5,17 @@ from ReviewState import ReviewState
 from langchain.chat_models import init_chat_model
 import os
 from langchain_tavily import TavilySearch
-
+from langchain_core.tools import ShellTool
 from langgraph.graph.message import add_messages
+from langchain_community.agent_toolkits.github.toolkit import GitHubToolkit
+from langchain_community.utilities.github import GitHubAPIWrapper
 
-
+import getpass
+import os
+import re
+from pathlib import Path
+from dotenv import load_dotenv
+load_dotenv()
 def get_model(temperature: float = 0.0):
         return init_chat_model(
                 model="gpt-5.4-mini",
@@ -52,6 +59,60 @@ def cross_repository_search(query: str) -> str:
     """
     If there is breaking change that can impact the current Frontend codebase, then this tool will search across frontend repositories to find relevant information about the change and its potential impact.
     """
-    print(f"Searching across repositories for: {query}")
-    # Implement your cross-repository search logic here
-    return str(f"Results for cross-repository search with query: {query}")
+    print(f"Performing cross-repository search with query: {query}")
+    shell_tool = ShellTool()
+    print(shell_tool.run({"commands": ["gh search code /ws/transcripts/ --repo prititaliya/LiveTalk-Fronend", "time"]}))
+    class SearchResult(TypedDict):
+        original_query: str
+        previous_tried_queries: List[str]
+        results: List[str]
+        flag: bool
+    class QueryResult(TypedDict):
+        query: str
+    state= SearchResult(
+        original_query=query,
+        previous_tried_queries=[],
+        results=[],
+        flag=False
+    )
+    for i in range(3):  # Try up to 3 times
+        print(f"Attempt {i+1} for cross-repository search...")
+        system_message = SystemMessage(content=f"""
+            You are a helpful assistant that performs cross-repository searches to find relevant information about potential breaking changes and their impact on the current Frontend codebase. Your task is to analyze the given query, generate search queries, and execute them to gather information that can help assess the impact of the change.
+            """)
+        human_message = HumanMessage(content=f"""
+            Here is the original query: {query}
+            Based on this query, generate a search query that can be used to find relevant information across repositories. If you have already tried some queries, consider them and generate a new one if necessary.
+            {{"previous_tried_queries": {state['previous_tried_queries']}, "results": {state['results']}}}
+             If you find information that indicates a potential breaking change with impact on the frontend, set the flag to True. Otherwise, keep it False.
+             and reposetory is prititaliya/LiveTalk-Fronend, so that should be the suffix for example
+             for query "/ws/transcripts/"
+             it would become "gh search code /ws/transcripts/ --repo prititaliya/LiveTalk-Fronend"
+            """)
+        gen_model = init_chat_model(
+                model="gpt-5.4-mini",
+                model_provider="openai",   
+                temperature=0.0,
+                api_key=os.getenv("OPENAI_API_KEY")
+            ).with_structured_output(QueryResult)
+        response = gen_model.invoke([system_message, human_message])
+        print("Generated search query:", response)
+        print("Generated search query:", response["query"])
+        
+        
+        try:
+            search_results = shell_tool.run({"commands": [response["query"]]})
+        except Exception as e:
+            search_results = f"search error: {e}"
+        print("Search results:", search_results)
+        state["previous_tried_queries"] = state.get("previous_tried_queries", []) + [response["query"]]
+        state["results"] = state.get("results", []) + [str(search_results)]
+        response["results"] = response.get("results", []) + [str(search_results)]
+
+        if search_results:
+                return "THERE IS BREAKING CHANGE WITH POTENTIAL IMPACT ON FRONTEND. SEARCH RESULTS: " + str(search_results)  
+    if state["flag"]:
+      return "THERE IS BREAKING CHANGE WITH POTENTIAL IMPACT ON FRONTEND. SEARCH RESULTS: " + str(response["results"])
+    else:
+         return "NO BREAKING CHANGE DETECTED WITH POTENTIAL IMPACT ON FRONTEND. SEARCH RESULTS: " + str(response["results"])
+
