@@ -10,7 +10,7 @@ on:
       - 'Backend/**'
       - 'Review-agent/**'
       - '.github/workflows/ai-agent-review.yaml'
-      - "*"
+      - "**"
 
 jobs:
   review:
