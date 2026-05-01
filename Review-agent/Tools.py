@@ -53,7 +53,8 @@ def tavily_search(query: str) -> str:
 @tool
 def cross_repository_search(query: str) -> str:
     """
-    If there is breaking change that can impact the current Frontend codebase, then this tool will search across frontend repositories to find relevant information about the change and its potential impact.
+    A tool for performing cross-repository search to find relevant information about potential breaking changes and their impact on the current Frontend codebase.
+    If there is any API change that can potentially impact the frontend codebase, it should be detected by this tool and the search results should be analyzed to provide insights on the potential impact and suggestions for improvement if needed.
     """
     print(f"Performing cross-repository search with query: {query}")
     shell_tool = ShellTool()
