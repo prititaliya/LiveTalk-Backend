@@ -7,6 +7,7 @@ import os
 from langchain_tavily import TavilySearch
 from langchain_community.tools import ShellTool
 from langgraph.graph.message import add_messages
+from typing import TypedDict, List
 
 import os
 from pathlib import Path

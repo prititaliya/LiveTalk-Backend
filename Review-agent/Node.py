@@ -87,7 +87,7 @@ You must check that is there any existing API endpoint is changed in the code ch
                 - code_suggestions: Suggestions for code improvement based on the previous comments.
                 if you need more thoughts to make a decision, use the Think tool to think through the review process and gather your thoughts before creating the summary and results.
                 Make sure to check the documentations from search tool if you need to find more information about any topic related to the review process.
-                if there is any API endpoint change, you MUST use the cross_repository_search tool to search across frontend repositories to find relevant information about the change and its potential impact, and include that information in your summary and results.
+                if there is any API endpoint change, you MUST use the cross_repository_search tool Which takes a query as input (eg. if there is some changes like ws/transcripts/ to ws/user_transcripts/ then it should be ws/transcripts/) to search across frontend repositories to find relevant information about the change and its potential impact, and include that information in your summary and results.
                 """
                 )
       
@@ -160,8 +160,7 @@ You must check that is there any existing API endpoint is changed in the code ch
                 You are an agent that checks whether the code comments provided in the review process have been addressed in the code changes.
                 Only Focus on the comments that are between <<COMMENT_START>> and <<COMMENT_END>> markers.
                 For each comment, analyze the code changes to determine if the comment has been addressed.
-                If a comment has been addressed, mark it as "Addressed". If it has not been addressed, mark it as "Not Addressed" and provide potential suggestions for improvement based on the comment.
-                     If Cross Reposetory Search took a place and some breaking change that can impact the current Frontend codebase is found, then you must also analyze the impact of that change based on the code comments and provide suggestions for improvement if needed. And for that you MUST INCLUDE that analysis in your review of the comments WITH WARNING EMOJI for better visibility and add what file on the frontend codebase is impacted by that change if possible based on the information you have."""
+                If a comment has been addressed, mark it as "Addressed". If it has not been addressed, mark it as "Not Addressed" and provide potential suggestions for improvement based on the comment."""
             )
         )
         human_message = HumanMessage(
