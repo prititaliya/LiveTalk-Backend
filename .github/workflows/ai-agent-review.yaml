@@ -6,20 +6,16 @@ on:
     types: [opened, synchronize, reopened]
     branches:
       - main
-    paths:
-      - 'Backend/**'
-      - 'Review-agent/**'
-      - '.github/workflows/ai-agent-review.yaml'
-      - "**"
 
 jobs:
   review:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout PR head
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
       - name: Print PR info
@@ -29,23 +25,39 @@ jobs:
           echo "PR title: ${{ github.event.pull_request.title }}"
           echo "Base branch: ${{ github.event.pull_request.base.ref }}"
           echo "Head branch: ${{ github.event.pull_request.head.ref }}"
+          echo "Base SHA: ${{ github.event.pull_request.base.sha }}"
+          echo "Head SHA: ${{ github.event.pull_request.head.sha }}"
           echo "GITHUB_REF: $GITHUB_REF"
           echo "GITHUB_SHA: $GITHUB_SHA"
 
       - name: Fetch base branch
-        run: git fetch origin main
+        run: |
+          git fetch origin ${{ github.event.pull_request.base.ref }} --depth=1
 
       - name: Generate diff files
         run: |
-          git diff --stat origin/main HEAD -- . ':(exclude)Review-agent/full_diff.txt' ':(exclude)Review-agent/final_summary.md' ':(exclude)Review-agent/graph.drawio' ':(exclude)**/__pycache__/**' > diff_stat.txt
-          git diff origin/main HEAD -- . ':(exclude)Review-agent/full_diff.txt' ':(exclude)Review-agent/final_summary.md' ':(exclude)Review-agent/graph.drawio' ':(exclude)**/__pycache__/**' > full_diff.txt
+          git diff --stat origin/${{ github.event.pull_request.base.ref }}...HEAD -- . \
+            ':(exclude)Review-agent/full_diff.txt' \
+            ':(exclude)Review-agent/final_summary.md' \
+            ':(exclude)Review-agent/graph.drawio' \
+            ':(exclude)**/__pycache__/**' > diff_stat.txt
+
+          git diff origin/${{ github.event.pull_request.base.ref }}...HEAD -- . \
+            ':(exclude)Review-agent/full_diff.txt' \
+            ':(exclude)Review-agent/final_summary.md' \
+            ':(exclude)Review-agent/graph.drawio' \
+            ':(exclude)**/__pycache__/**' > full_diff.txt
 
       - name: Debug diff info
         run: |
           echo "Stat size: $(wc -c < diff_stat.txt) bytes"
           echo "Diff size: $(wc -c < full_diff.txt) bytes"
           echo "Changed files:"
-          git diff --name-only origin/main HEAD -- . ':(exclude)Review-agent/full_diff.txt' ':(exclude)Review-agent/final_summary.md' ':(exclude)Review-agent/graph.drawio' ':(exclude)**/__pycache__/**' || true
+          git diff --name-only origin/${{ github.event.pull_request.base.ref }}...HEAD -- . \
+            ':(exclude)Review-agent/full_diff.txt' \
+            ':(exclude)Review-agent/final_summary.md' \
+            ':(exclude)Review-agent/graph.drawio' \
+            ':(exclude)**/__pycache__/**' || true
           echo "Recent commits:"
           git log --oneline --decorate -n 10
 
@@ -70,6 +82,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Download diff artifacts
         uses: actions/download-artifact@v5
@@ -89,16 +103,16 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # 1. Get Conversation/Issue comments (Screenshot 2)
           gh api repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
-            --paginate --jq '.[] | select(.user.login != "github-actions[bot]") | {body, type: "issue"}' > issue_comments.json
+            --paginate \
+            --jq '.[] | select(.user.login != "github-actions[bot]") | {body, type: "issue"}' > issue_comments.json
 
-          # 2. Get Review comments AND Replies (Screenshot 1)
           gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments \
-            --paginate --jq '.[] | select(.user.login != "github-actions[bot]") | {body, path, line, original_line, side, type: "review"}' > review_comments.json
+            --paginate \
+            --jq '.[] | select(.user.login != "github-actions[bot]") | {body, path, line, original_line, side, type: "review"}' > review_comments.json
 
-          # 3. Combine into a valid JSON array
           jq -s 'add' <(jq -s '.' issue_comments.json) <(jq -s '.' review_comments.json) > all_comments.json
+
       - name: Run AI review agent
         id: ai-review
         env:
