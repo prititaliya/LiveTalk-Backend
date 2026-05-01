@@ -5,14 +5,11 @@ from ReviewState import ReviewState
 from langchain.chat_models import init_chat_model
 import os
 from langchain_tavily import TavilySearch
-from langchain_core.tools import ShellTool
 from langgraph.graph.message import add_messages
-from langchain_community.agent_toolkits.github.toolkit import GitHubToolkit
-from langchain_community.utilities.github import GitHubAPIWrapper
+from langchain_community.tools.shell.tool import ShellTool
 
-import getpass
+
 import os
-import re
 from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv()
