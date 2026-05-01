@@ -34,11 +34,13 @@ class Node:
         - Plan: {state['plan']}
         - Action: {state['action']}
         - Result: {state['result']}
-If you are unsure or need to reason about any part of the review, you MUST call the Think tool with a question and the current context before proceeding. Then, provide your concise, bulleted plan of action and next steps."""
+If you are unsure or need to reason about any part of the review, you MUST call the Think tool with a question and the current context before proceeding. Then, provide your concise, bulleted plan of action and next steps.
+You must check that is there any existing API endpoint is changed in the code changes, if there is any API endpoint change, you must include in the plan to check the documentation for the changed API endpoints using the TavilySearch tool to find the relevant documentation and analyze it for any potential impact on the review process And in that case you also need to return API endpoint change flag to true in the response"""
         )
 
         class Plan(TypedDict):
-                    plan: str
+                plan: str
+                API_Change_Flag: bool
 
         gen_model = self.get_model(temperature=0.0).with_structured_output(Plan)
         response = gen_model.invoke([system_message, human_message])
@@ -54,7 +56,9 @@ If you are unsure or need to reason about any part of the review, you MUST call 
                     print("Orchestrator is thinking...")
         print("Orchestrator Agent Response:", response)
         state["plan"] = response["plan"]
+        state["API_Change_Flag"] = response["API_Change_Flag"]
         print("Orchestrator Agent Response:", state["plan"])
+        print("API Change Flag:", state["API_Change_Flag"])
         state["iteration"] += 1
         return state
     

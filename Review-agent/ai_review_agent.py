@@ -97,7 +97,8 @@ initial_state = ReviewState(
     thoughts="",
     questions_to_think_through="",
     context_for_thoughts="",
-    messages=[] 
+    messages=[] ,
+    API_Change_Flag=False
 )
 
 final_state = app.invoke(initial_state)

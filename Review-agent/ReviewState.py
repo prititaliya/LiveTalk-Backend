@@ -39,3 +39,4 @@ class ReviewState(TypedDict, total=False):
     questions_to_think_through: str
     context_for_thoughts: str
     messages: Optional[List[Any]]
+    API_Change_Flag: bool
