@@ -55,7 +55,7 @@ You must check that is there any existing API endpoint is changed in the code ch
         print("Orchestrator Agent Response:", state["plan"])
         print("API Change Flag:", state["API_Change_Flag"])
         state["iteration"] += 1
-        return state
+        return {"messages": [system_message, human_message, response], "plan": state["plan"], "API_Change_Flag": state["API_Change_Flag"], "iteration": state["iteration"]}
     
     def fetch_prompt(self):
         base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -91,6 +91,7 @@ You must check that is there any existing API endpoint is changed in the code ch
             print("Tool message found in messages:", messages)
             print("Tool name:", messages[-1].name)
             response = self.get_model(temperature=0.0).invoke(messages)
+            print("Response after tool invocation:", response)
             return {"messages": [response]}
         
 
