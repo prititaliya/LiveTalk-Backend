@@ -1,8 +1,10 @@
 from typing import Literal, TypedDict
-from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.messages import SystemMessage, HumanMessage,AIMessage,ToolMessage
 from langchain.chat_models import init_chat_model
 import os
 from ReviewState import ReviewState, Summary
+from langgraph.graph.message import add_messages
+
 from Tools import think_tool,tavily_search, cross_repository_search
 class Node:
     def get_model(
@@ -55,7 +57,8 @@ You must check that is there any existing API endpoint is changed in the code ch
         print("Orchestrator Agent Response:", state["plan"])
         print("API Change Flag:", state["API_Change_Flag"])
         state["iteration"] += 1
-        return {"messages": [system_message, human_message, response], "plan": state["plan"], "API_Change_Flag": state["API_Change_Flag"], "iteration": state["iteration"]}
+        state["messages"] = [system_message, human_message, AIMessage(content=state["plan"])]
+        return state
     
     def fetch_prompt(self):
         base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -86,21 +89,20 @@ You must check that is there any existing API endpoint is changed in the code ch
             """
             )
 
-        messages = state.get("messages") or []
+        messages = state.get('messages')
         if messages and messages[-1].type == "tool":
             print("Tool message found in messages:", messages)
             print("Tool name:", messages[-1].name)
-            response = self.get_model(temperature=0.0).invoke(messages)
-            print("Response after tool invocation:", response)
-            return {"messages": [response]}
+            
+            # response = self.get_model(temperature=0.0).invoke(messages)   
+            return {"messages": messages}
         
 
-        messages = [system_message, human_message]
         response = self.get_model(
             temperature=0.0,
             bind_tools=True
         ).invoke(messages)
-        return {"messages": [system_message, human_message, response]}
+        return {"messages": add_messages(messages, [response])}
 
     def ReviewFinalize(self, state: ReviewState) -> ReviewState:
         gen_model = self.get_model(temperature=0.0).with_structured_output(Summary)
