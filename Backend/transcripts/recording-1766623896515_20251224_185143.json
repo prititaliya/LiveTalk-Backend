@@ -1,0 +1,32 @@
+{
+  "meeting_name": "recording-1766623896515",
+  "start_time": "2025-12-24T18:51:43.714628",
+  "transcripts": [
+    {
+      "speaker": "Speaker 1",
+      "text": "For.",
+      "timestamp": "2025-12-24T18:51:43.714084",
+      "is_final": true
+    },
+    {
+      "speaker": "Speaker 2",
+      "text": "If your friend asks you a question. And the answer is on your phone.",
+      "timestamp": "2025-12-24T18:51:48.880250",
+      "is_final": true
+    },
+    {
+      "speaker": "Speaker 2",
+      "text": "Shouldn't your phone just answer?",
+      "timestamp": "2025-12-24T18:51:51.401504",
+      "is_final": true
+    },
+    {
+      "speaker": "Speaker 3",
+      "text": "That.",
+      "timestamp": "2025-12-24T18:52:00.416743",
+      "is_final": true
+    }
+  ],
+  "total_entries": 4,
+  "last_updated": "2025-12-24T18:52:00.417046"
+}

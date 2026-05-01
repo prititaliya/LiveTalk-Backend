@@ -1,0 +1,38 @@
+{
+  "meeting_name": "recording-1766878426998",
+  "start_time": "2025-12-27T17:33:54.483751",
+  "transcripts": [
+    {
+      "speaker": "Speaker 1",
+      "text": "I'm a lot happier now.",
+      "timestamp": "2025-12-27T17:33:54.482807",
+      "is_final": true
+    },
+    {
+      "speaker": "Speaker 1",
+      "text": "Way than.",
+      "timestamp": "2025-12-27T17:33:57.973086",
+      "is_final": true
+    },
+    {
+      "speaker": "Speaker 2",
+      "text": "Just.",
+      "timestamp": "2025-12-27T17:33:57.975606",
+      "is_final": true
+    },
+    {
+      "speaker": "Speaker 2",
+      "text": "And.",
+      "timestamp": "2025-12-27T17:34:00.488312",
+      "is_final": true
+    },
+    {
+      "speaker": "Speaker 3",
+      "text": "What?",
+      "timestamp": "2025-12-27T17:34:13.713034",
+      "is_final": true
+    }
+  ],
+  "total_entries": 5,
+  "last_updated": "2025-12-27T17:34:13.713734"
+}

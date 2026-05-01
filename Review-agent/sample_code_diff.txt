@@ -1,0 +1,1 @@
+use think tool calls in the code and route them to a new tool node in the graph. This will allow the agent to generate thoughts and questions that can be used to improve the code review process.

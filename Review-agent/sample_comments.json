@@ -1,0 +1,12 @@
+[
+  {
+    "line": 2,
+    "comment": "Consider importing only what you need from sys.",
+    "author": "reviewer1"
+  },
+  {
+    "line": 5,
+    "comment": "Add a docstring to the new function bar().",
+    "author": "reviewer2"
+  }
+]

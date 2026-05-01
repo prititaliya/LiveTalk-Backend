@@ -1,0 +1,11 @@
+version: "2"
+# Add your FIRST ngrok account authtoken here
+# Get it from: https://dashboard.ngrok.com/get-started/your-authtoken
+authtoken: 37JYJgglBQSoB1lwfE7nqtO8xov_GT636AgwL8umnSLnyTxR
+
+tunnels:
+  frontend:
+    addr: 3000
+    proto: http
+    schemes: [https]  # Use HTTPS
+

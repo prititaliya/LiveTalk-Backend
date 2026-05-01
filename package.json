@@ -1,0 +1,16 @@
+{
+  "name": "livetalk",
+  "version": "1.0.0",
+  "description": "LiveTalk - Meeting Recording and Transcription",
+  "scripts": {
+    "start": "concurrently \"npm run start:api\" \"npm run start:agent\" \"npm run start:frontend\"",
+    "start:api": "cd Backend && python -m uvicorn api:app --host 0.0.0.0 --port 8000",
+    "start:agent": "cd Backend && python main.py",
+    "start:frontend": "cd Frontend && npm run dev",
+    "dev": "npm run start"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
+

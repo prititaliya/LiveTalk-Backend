@@ -1,0 +1,144 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: livetalk-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: livetalk
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: livetalk-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # LiveKit Server
+  livekit:
+    image: livekit/livekit:latest
+    container_name: livetalk-livekit
+    ports:
+      - "7880:7880"  # WebSocket port
+      - "7881:7881"  # HTTP port
+      - "1935:1935"  # RTMP port
+      - "50000-50100:50000-50100/udp"  # RTP ports
+    environment:
+      LIVEKIT_KEYS: ${LIVEKIT_API_KEY}:${LIVEKIT_API_SECRET}
+      LIVEKIT_PORT: 7880
+      LIVEKIT_RTC_PORT_RANGE_START: 50000
+      LIVEKIT_RTC_PORT_RANGE_END: 50100
+      # Enable RTMP ingress
+      LIVEKIT_RTMP_ENABLED: "true"
+      LIVEKIT_RTMP_PORT: 1935
+    volumes:
+      - ./livekit-config.yaml:/etc/livekit.yaml:ro
+    command: --config /etc/livekit.yaml
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7881/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
+  backend:
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile
+    container_name: livetalk-backend
+    ports:
+      - "8000:8000"
+    environment:
+      # Database
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/livetalk
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      # LiveKit
+      LIVEKIT_URL: ws://livekit:7880
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET}
+      LIVEKIT_RTMP_ENABLED: "true"
+      LIVEKIT_RTMP_PORT: 1935
+      # STT
+      STT_MODEL: ${STT_MODEL:-speechmatics}
+      SPEECHMATICS_API_KEY: ${SPEECHMATICS_API_KEY}
+      DEEPGRAM_API_KEY: ${DEEPGRAM_API_KEY}
+      ASSEMBLYAI_API_KEY: ${ASSEMBLYAI_API_KEY}
+      # JWT
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      JWT_ALGORITHM: HS256
+      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: 1440
+      # OpenAI
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      CHATBOT_MODEL: gpt-4o-mini
+      EMBEDDING_MODEL: text-embedding-3-small
+      VECTOR_STORE_TYPE: memory
+      # Zoom
+      ZOOM_API_KEY: ${ZOOM_API_KEY}
+      ZOOM_API_SECRET: ${ZOOM_API_SECRET}
+      ZOOM_ACCOUNT_ID: ${ZOOM_ACCOUNT_ID}
+      ZOOM_BASE_URL: https://api.zoom.us/v2
+    volumes:
+      - ./Backend/transcripts:/app/transcripts
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      livekit:
+        condition: service_healthy
+    command: uvicorn api:app --host 0.0.0.0 --port 8000 --reload
+
+  # LiveKit Agent (Transcription)
+  agent:
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile
+    container_name: livetalk-agent
+    environment:
+      # LiveKit
+      LIVEKIT_URL: ws://livekit:7880
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET}
+      # STT
+      STT_MODEL: ${STT_MODEL:-speechmatics}
+      SPEECHMATICS_API_KEY: ${SPEECHMATICS_API_KEY}
+      DEEPGRAM_API_KEY: ${DEEPGRAM_API_KEY}
+      ASSEMBLYAI_API_KEY: ${ASSEMBLYAI_API_KEY}
+      # Transcripts
+      TRANSCRIPTS_DIR: /app/transcripts
+    volumes:
+      - ./Backend/transcripts:/app/transcripts
+    depends_on:
+      livekit:
+        condition: service_healthy
+    command: python -m livekit.agents.cli dev
+
+volumes:
+  postgres_data:
+  redis_data:
+
+

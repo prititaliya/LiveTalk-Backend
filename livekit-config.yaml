@@ -1,0 +1,25 @@
+# LiveKit Server Configuration
+# This file configures the LiveKit server for RTMP ingress support
+
+port: 7880
+rtc:
+  tcp_port: 7881
+  port_range_start: 50000
+  port_range_end: 50100
+
+# Redis configuration (optional, for distributed deployments)
+# redis:
+#   address: redis:6379
+
+# RTMP Ingress Configuration
+ingress:
+  rtmp_base_url: rtmp://localhost:1935
+  rtmp_port: 1935
+
+# Logging
+log_level: info
+
+# Development settings
+development: true
+
+

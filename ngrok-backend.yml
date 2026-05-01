@@ -1,0 +1,11 @@
+version: "2"
+# Add your SECOND ngrok account authtoken here
+# Get it from: https://dashboard.ngrok.com/get-started/your-authtoken (second account)
+authtoken: 1xObeB4u4Orm4rvmv0JZBBqhPOE_7FhYf5jkgi3hRsvjeumGW
+
+tunnels:
+  backend:
+    addr: 8000
+    proto: http
+    schemes: [https]  # Use HTTPS
+
