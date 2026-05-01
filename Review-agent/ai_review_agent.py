@@ -1,22 +1,14 @@
 import argparse
-import json
 import os
-from pathlib import Path
-from typing import Literal, TypedDict
 
-from dotenv import load_dotenv
-from langchain.chat_models import init_chat_model
 from langgraph.graph import END, START, StateGraph
 
 from Node import Node
-from ReviewState import ReviewState,Summary
+from ReviewState import ReviewState
 from InputFormatter import InputFormatter
 
-from langgraph.prebuilt import  tools_condition,ToolNode
-from Tools import think_tool,tavily_search
-
-
-input_formatter = InputFormatter()
+from langgraph.prebuilt import tools_condition, ToolNode
+from Tools import think_tool, tavily_search, cross_repository_search
 
 
 parser = argparse.ArgumentParser()
@@ -28,8 +20,6 @@ parser.add_argument("--comments-file", default="", required=False)
 
 args = parser.parse_args()
 input_formatter = InputFormatter()
-
-diff_stats = input_formatter.difference_stats(args.diff_stats_file) if args.diff_stats_file else ""
 
 # Use default files if running locally and no args provided
 if not any([args.diff_stats_file, args.code_diff_file, args.comments_file]) and os.getenv("CI") is None:
@@ -48,15 +38,14 @@ Node = Node()
 graph = StateGraph(ReviewState)
 graph.add_node("orchestrator", Node.orchestratorAgent)
 graph.add_node("review_agent_1", Node.ReviewSubAgent1)
+graph.add_node("review_finalize", Node.ReviewFinalize)
 graph.add_node("conditional_node", Node.conditional_node_to_end_or_review)
 graph.add_node("comment_check", Node.check_comments_addressed)
 graph.add_node("Summary", Node.generate_summary)
-tools=[think_tool,tavily_search]
+tools = [think_tool, tavily_search, cross_repository_search]
 tool_node = ToolNode(tools)
 graph.add_node("tools", tool_node)
 graph.add_edge(START, "orchestrator")
-graph.add_conditional_edges("orchestrator", tools_condition)
-graph.add_edge("tools", "orchestrator")
 graph.add_edge("orchestrator", "conditional_node")
 
 
@@ -75,9 +64,16 @@ graph.add_conditional_edges(
     }
 )
 
-graph.add_edge("review_agent_1", "orchestrator")
-graph.add_conditional_edges("review_agent_1", tools_condition)
+graph.add_conditional_edges(
+    "review_agent_1",
+    tools_condition,
+    {
+        "tools": "tools",
+        "__end__": "review_finalize",
+    },
+)
 graph.add_edge("tools", "review_agent_1")
+graph.add_edge("review_finalize", "orchestrator")
 graph.add_edge("comment_check", "Summary")
 graph.add_edge("Summary", END)
 
@@ -97,8 +93,7 @@ initial_state = ReviewState(
     thoughts="",
     questions_to_think_through="",
     context_for_thoughts="",
-    messages=[] ,
-    API_Change_Flag=False
+    messages=[] 
 )
 
 final_state = app.invoke(initial_state)

@@ -45,3 +45,12 @@ def tavily_search(query: str) -> str:
     tavily = TavilySearch()
     results = tavily.run(query)
     return results
+
+@tool("CrossRepositorySearch")
+def cross_repository_search(query: str) -> str:
+    """
+    If there is breaking change that can impact the current Frontend codebase, then this tool will search across frontend repositories to find relevant information about the change and its potential impact.
+    """
+    print(f"Searching across repositories for: {query}")
+    # Implement your cross-repository search logic here
+    return "Cross-repository search results for: " + query

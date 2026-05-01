@@ -1,20 +1,26 @@
 from typing import Literal, TypedDict
-from langgraph.graph import StateGraph, START, END
 from langchain_core.messages import SystemMessage, HumanMessage
 from langchain.chat_models import init_chat_model
-from dotenv import load_dotenv
 import os
 from ReviewState import ReviewState, Summary
-from langchain_core.messages import HumanMessage, SystemMessage
-from Tools import think_tool,tavily_search
+from Tools import think_tool,tavily_search, cross_repository_search
 class Node:
-    def get_model(self, temperature: float = 0.0):
-        return init_chat_model(
+    def get_model(
+        self,
+        temperature: float = 0.0,
+        bind_tools: bool = False,
+        tool_choice: str | None = None,
+    ):
+        model = init_chat_model(
             model="gpt-5.4-mini",
             model_provider="openai",   
             temperature=temperature,
             api_key=os.getenv("OPENAI_API_KEY")
-        ).bind_tools([think_tool,tavily_search])
+        )
+        if bind_tools:
+            kwargs = {"tool_choice": tool_choice} if tool_choice else {}
+            return model.bind_tools([think_tool,tavily_search, cross_repository_search], **kwargs)
+        return model
 
     def orchestratorAgent(self, state: ReviewState) -> ReviewState:
         if state["plan"] != "":
@@ -44,17 +50,6 @@ You must check that is there any existing API endpoint is changed in the code ch
 
         gen_model = self.get_model(temperature=0.0).with_structured_output(Plan)
         response = gen_model.invoke([system_message, human_message])
-        # Always set messages for tool node compatibility
-        state["messages"] = [system_message, human_message]
-        if hasattr(response, "tool_calls") and response.tool_calls:
-            print("Tool calls detected in Orchestrator Agent response:", response.tool_calls)
-            for tool_call in response.tool_calls:
-                if tool_call["name"] == "SubmitPlan":
-                    state["plan"] = tool_call["args"]["plan"]
-                    print("Orchestrator Agent Plan Submitted:", state["plan"])
-                elif tool_call["name"] == "Think":
-                    print("Orchestrator is thinking...")
-        print("Orchestrator Agent Response:", response)
         state["plan"] = response["plan"]
         state["API_Change_Flag"] = response["API_Change_Flag"]
         print("Orchestrator Agent Response:", state["plan"])
@@ -91,20 +86,24 @@ You must check that is there any existing API endpoint is changed in the code ch
             """
             )
 
+        messages = state.get("messages") or []
+        if messages and messages[-1].type == "tool":
+            print("Tool message found in messages:", messages)
+            print("Tool name:", messages[-1].name)
+            response = self.get_model(temperature=0.0).invoke(messages)
+            return {"messages": [response]}
+        
+
+        messages = [system_message, human_message]
+        response = self.get_model(
+            temperature=0.0,
+            bind_tools=True
+        ).invoke(messages)
+        return {"messages": [system_message, human_message, response]}
+
+    def ReviewFinalize(self, state: ReviewState) -> ReviewState:
         gen_model = self.get_model(temperature=0.0).with_structured_output(Summary)
-        response = gen_model.invoke([system_message, human_message])
-        # Always set messages for tool node compatibility
-        state["messages"] = [system_message, human_message]
-        if hasattr(response, "tool_calls") and response.tool_calls:
-            print("Tool calls detected in ReviewSubAgent1 response:", response.tool_calls)
-            for tool_call in response.tool_calls:
-                if tool_call["name"] == "SubmitPlan":
-                    state["plan"] = tool_call["args"]["plan"]
-                    print("Orchestrator Agent Plan Submitted:", state["plan"])
-                elif tool_call["name"] == "Think":
-                    print("Orchestrator is thinking...")
-                elif tool_call["name"] == "TavilySearch":
-                    print("Orchestrator is searching the web...")
+        response = gen_model.invoke(state["messages"])
         print("Review SubAgent 1 Response:", response['summary'])
         state["summary"] = response["summary"]
         state["result"] = response["result"]
