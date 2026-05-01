@@ -108,9 +108,6 @@ def cross_repository_search(query: str) -> str:
         response["results"] = response.get("results", []) + [str(search_results)]
 
         if search_results:
-                return "THERE IS BREAKING CHANGE WITH POTENTIAL IMPACT ON FRONTEND. SEARCH RESULTS: " + str(search_results)  
-    if state["flag"]:
-      return "THERE IS BREAKING CHANGE WITH POTENTIAL IMPACT ON FRONTEND. SEARCH RESULTS: " + str(response["results"])
-    else:
-         return "NO BREAKING CHANGE DETECTED WITH POTENTIAL IMPACT ON FRONTEND. SEARCH RESULTS: " + str(response["results"])
+            return "‼️‼️‼️‼️THERE IS BREAKING CHANGE WITH POTENTIAL IMPACT ON FRONTEND, WHICH WOULD IMPACT THE FRONTEND AT: " + str(response["results"])
+    return "NO BREAKING CHANGE DETECTED WITH POTENTIAL IMPACT ON FRONTEND. SEARCH RESULTS: " + str(response["results"])
 

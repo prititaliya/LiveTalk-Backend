@@ -66,7 +66,6 @@ You must check that is there any existing API endpoint is changed in the code ch
 
     def ReviewSubAgent1(self, state: ReviewState) -> ReviewState:
         messages = state.get("messages", [])
-
         if not messages:
             system_message = SystemMessage(content=self.fetch_prompt())
             human_message = HumanMessage(
@@ -87,7 +86,7 @@ You must check that is there any existing API endpoint is changed in the code ch
                 - code_suggestions: Suggestions for code improvement based on the previous comments.
                 if you need more thoughts to make a decision, use the Think tool to think through the review process and gather your thoughts before creating the summary and results.
                 Make sure to check the documentations from search tool if you need to find more information about any topic related to the review process.
-                if there is any API endpoint change, you MUST use the cross_repository_search tool Which takes a query as input (eg. if there is some changes like ws/transcripts/ to ws/user_transcripts/ then it should be ws/transcripts/) to search across frontend repositories to find relevant information about the change and its potential impact, and include that information in your summary and results.
+                if there is any API endpoint change, you MUST use the cross_repository_search tool Which takes a query as input (eg. if there is some changes like ws/transcripts/ to ws/user_transcripts/ then it should be ws/transcripts/) so basically it takes old code as input to search across frontend repositories to find relevant information about the change and its potential impact, AND YOU MUST INCLUDE THAT ANALYSIS IN THE FINAL REVIEW AND USE WARNING EMOJI IN THE SUMMARY TO HIGHLIGHT THE POTENTIAL IMPACT OF THE API CHANGE ON THE FRONTEND. AND YOU WILL BE GETTING THE FILE NAME FROM THE TOOLCALL RESULT IN THE MESSAGES, SO MAKE SURE TO USE THAT FILE NAME IN THE QUERY FOR CROSS_REPOSITORY_SEARCH TOOL TO CHECK IF THERE IS ANY POTENTIAL IMPACT ON FRONTEND.
                 """
                 )
       
@@ -97,8 +96,8 @@ You must check that is there any existing API endpoint is changed in the code ch
             temperature=0.0,
             bind_tools=True
         ).invoke(messages)
-
-        return {"messages": [response]}
+        
+        return {"messages": messages + [response]}
 
     def ReviewFinalize(self, state: ReviewState) -> ReviewState:
 
@@ -187,23 +186,20 @@ You must check that is there any existing API endpoint is changed in the code ch
     def generate_summary(self, state: ReviewState) -> ReviewState:
         system_message = SystemMessage(
         content=(
-            "You are an agent that generates a final in-depth analysis of the code review process, "
-            "including the results and suggestions for improvement. "
-            "You MUST include a section summarizing the review of PR comments (whether they were addressed or not), "
-            "and do not miss any suggestion for improvement based on the comments. "
-            "Also include a markdown formatted summary of the results for better readability."
+            """
+            You are an agent that generates a final summary of the code review process based on the information provided about the review.  
+            YOU MUST INCLUDE TOOLCALL RESULTS IN THE SUMMARY IF THERE IS ANY TOOL CALL IN THE MESSAGES. """
         )
     )
         human_message = HumanMessage(
             content=f"""Here is the information about the code review process:
-            Plan: {state['plan']}
-            Action: {state['action']}
-            Result: {state['result']}
-            **PR Comments Review:** {state['comments_review']}
-            Based on this information, generate a final summary of the code review process, including:
-            - The results and suggestions for improvement.
-            - A dedicated section for PR comments review (whether they were addressed or not, and any suggestions).
-            - A markdown formatted summary of the results for better readability.
+            {state}
+            Based on this information, generate a final summary of the code review process.
+            Requirements:
+            - Include any tool-call results that are relevant to the findings.
+            - If cross_repository_search found a frontend impact, mention it clearly.
+            - Include a dedicated section for PR comments review.
+            - Return a markdown-formatted summary of the results for better readability.
             """
                 )
 
