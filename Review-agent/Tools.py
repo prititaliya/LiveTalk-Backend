@@ -5,9 +5,8 @@ from ReviewState import ReviewState
 from langchain.chat_models import init_chat_model
 import os
 from langchain_tavily import TavilySearch
+from langchain_community.tools import ShellTool
 from langgraph.graph.message import add_messages
-from langchain_community.tools.shell.tool import ShellTool
-
 
 import os
 from pathlib import Path
