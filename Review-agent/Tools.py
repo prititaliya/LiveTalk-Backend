@@ -1,11 +1,12 @@
 from langchain_core.tools import tool
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage, SystemMessage,ToolMessage
 from typing import TypedDict
 from ReviewState import ReviewState
 from langchain.chat_models import init_chat_model
 import os
 from langchain_tavily import TavilySearch
 
+from langgraph.graph.message import add_messages
 
 
 def get_model(temperature: float = 0.0):
@@ -15,7 +16,7 @@ def get_model(temperature: float = 0.0):
                 temperature=temperature,
                 api_key=os.getenv("OPENAI_API_KEY")
             )
-@tool("Think")
+@tool
 def think_tool( question: str, context: str) -> str:
         """
         A tool for thinking through the review process.
@@ -36,7 +37,7 @@ def think_tool( question: str, context: str) -> str:
 
         return response["thoughts"]
 
-@tool("TavilySearch")
+@tool
 def tavily_search(query: str) -> str:
     """
     A tool for searching the web using Tavily.
@@ -44,13 +45,13 @@ def tavily_search(query: str) -> str:
     print(f"Searching the web for: {query}")
     tavily = TavilySearch()
     results = tavily.run(query)
-    return results
+    return str(results)
 
-@tool("CrossRepositorySearch")
+@tool
 def cross_repository_search(query: str) -> str:
     """
     If there is breaking change that can impact the current Frontend codebase, then this tool will search across frontend repositories to find relevant information about the change and its potential impact.
     """
     print(f"Searching across repositories for: {query}")
     # Implement your cross-repository search logic here
-    return "Cross-repository search results for: " + query
+    return str(f"Results for cross-repository search with query: {query}")

@@ -10,7 +10,8 @@ from InputFormatter import InputFormatter
 from langgraph.prebuilt import tools_condition, ToolNode
 from Tools import think_tool, tavily_search, cross_repository_search
 
-
+from dotenv import load_dotenv
+load_dotenv()
 parser = argparse.ArgumentParser()
 
 
@@ -78,6 +79,7 @@ graph.add_edge("comment_check", "Summary")
 graph.add_edge("Summary", END)
 
 app = graph.compile()
+print(app.get_graph().draw_ascii())
 
 initial_state = ReviewState(
     diff_stats=diff_stats,
@@ -104,7 +106,6 @@ with open("final_state.txt", "w", encoding="utf-8") as f:
 with open("final_summary.md", "w", encoding="utf-8") as f:
     f.write(final_state["markdown_summary"])
 
-print(app.get_graph().draw_ascii())
 print("plan:", final_state["plan"])
 print("result:", final_state["result"])
 print("summary:", final_state["summary"])

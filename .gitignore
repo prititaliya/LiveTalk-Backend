@@ -1,3 +1,8 @@
+# Review-agent sample files
+Review-agent/sample_code_diff.txt
+Review-agent/sample_comments.json
+Review-agent/sample_diff_stats.txt
+Review-agent/sample_files_changed.txt
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

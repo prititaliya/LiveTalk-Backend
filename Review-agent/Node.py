@@ -1,4 +1,5 @@
 from typing import Literal, TypedDict
+from langchain_core import messages
 from langchain_core.messages import SystemMessage, HumanMessage,AIMessage,ToolMessage
 from langchain.chat_models import init_chat_model
 import os
@@ -54,10 +55,7 @@ You must check that is there any existing API endpoint is changed in the code ch
         response = gen_model.invoke([system_message, human_message])
         state["plan"] = response["plan"]
         state["API_Change_Flag"] = response["API_Change_Flag"]
-        print("Orchestrator Agent Response:", state["plan"])
-        print("API Change Flag:", state["API_Change_Flag"])
         state["iteration"] += 1
-        state["messages"] = [system_message, human_message, AIMessage(content=state["plan"])]
         return state
     
     def fetch_prompt(self):
@@ -67,45 +65,45 @@ You must check that is there any existing API endpoint is changed in the code ch
             return f.read()
 
     def ReviewSubAgent1(self, state: ReviewState) -> ReviewState:
-        system_message = SystemMessage(content=self.fetch_prompt())
-        human_message = HumanMessage(
-            content=f"""
-            Your Goal is to work on the given Plan:
-            {state['plan']}
-             and execute it based on the given information about the code changes and comments:
-            Diff Stats: {state['diff_stats']}
-            Code Comments: {state['code_comments']}
-            Code Diff: {state['full_diff']}
-            suggestions for improvement based on the previous comments: {state['comments_review']}
+        messages = state.get("messages", [])
 
-            Based on this information, please create a concise summary of the code changes.
-            **You MUST return all of the following fields in your response:**
-            - summary: A plain English summary of the code changes and issues found.
-            - result: A structured list of findings (bugs, vulnerabilities, etc).
-            - result_markdown: A markdown-formatted version of the result for better readability (include code blocks, tables, etc).
-            - code_suggestions: Suggestions for code improvement based on the previous comments.
-            if you need more thoughts to make a decision, use the Think tool to think through the review process and gather your thoughts before creating the summary and results.
-            Make sure to check the documentations from search tool if you need to find more information about any topic related to the review process.
-            """
-            )
+        if not messages:
+            system_message = SystemMessage(content=self.fetch_prompt())
+            human_message = HumanMessage(
+                content=f"""
+                Your Goal is to work on the given Plan:
+                {state['plan']}
+                and execute it based on the given information about the code changes and comments:
+                Diff Stats: {state['diff_stats']}
+                Code Comments: {state['code_comments']}
+                Code Diff: {state['full_diff']}
+                suggestions for improvement based on the previous comments: {state['comments_review']}
 
-        messages = state.get('messages')
-        if messages and messages[-1].type == "tool":
-            print("Tool message found in messages:", messages)
-            print("Tool name:", messages[-1].name)
-            
-            # response = self.get_model(temperature=0.0).invoke(messages)   
-            return {"messages": messages}
-        
+                Based on this information, please create a concise summary of the code changes.
+                **You MUST return all of the following fields in your response:**
+                - summary: A plain English summary of the code changes and issues found.
+                - result: A structured list of findings (bugs, vulnerabilities, etc).
+                - result_markdown: A markdown-formatted version of the result for better readability (include code blocks, tables, etc).
+                - code_suggestions: Suggestions for code improvement based on the previous comments.
+                if you need more thoughts to make a decision, use the Think tool to think through the review process and gather your thoughts before creating the summary and results.
+                Make sure to check the documentations from search tool if you need to find more information about any topic related to the review process.
+                if there is any API endpoint change, you MUST use the cross_repository_search tool to search across frontend repositories to find relevant information about the change and its potential impact, and include that information in your summary and results.
+                """
+                )
+      
+            messages = add_messages(messages, [system_message, human_message])
 
         response = self.get_model(
             temperature=0.0,
             bind_tools=True
         ).invoke(messages)
-        return {"messages": add_messages(messages, [response])}
+
+        return {"messages": [response]}
 
     def ReviewFinalize(self, state: ReviewState) -> ReviewState:
+
         gen_model = self.get_model(temperature=0.0).with_structured_output(Summary)
+        print("Messages before finalizing review:", state.get("messages"))
         response = gen_model.invoke(state["messages"])
         print("Review SubAgent 1 Response:", response['summary'])
         state["summary"] = response["summary"]
@@ -148,7 +146,6 @@ You must check that is there any existing API endpoint is changed in the code ch
         gen_model = self.get_model(temperature=0).with_structured_output(ReviewDecision)
         response = gen_model.invoke([system_message, human_message])
         state["action"] = response["next_step"]
-      
         return state
 
 
