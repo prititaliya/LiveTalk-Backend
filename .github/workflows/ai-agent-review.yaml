@@ -121,6 +121,7 @@ jobs:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           DEPENDENT_REPO: ${{ secrets.DEPENDENT_REPO }}
           HUB_TOKEN: ${{ secrets.HUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.HUB_TOKEN }}
         run: |
           python3 Review-agent/ai_review_agent.py \
             --diff-stats-file diff_stat.txt \
