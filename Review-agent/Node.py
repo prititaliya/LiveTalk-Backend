@@ -7,7 +7,7 @@ from ReviewState import ReviewState, Summary
 from langgraph.graph.message import add_messages
 
 from Tools import think_tool,tavily_search, cross_repository_search
-class Node:
+class Node: 
     def get_model(
         self,
         temperature: float = 0.0,
@@ -17,7 +17,7 @@ class Node:
         model = init_chat_model(
             model="gpt-5.4-mini",
             model_provider="openai",   
-            temperature=temperature,
+            temperature=temperature, 
             api_key=os.getenv("OPENAI_API_KEY")
         )
         if bind_tools:
@@ -43,8 +43,8 @@ class Node:
         - Plan: {state['plan']}
         - Action: {state['action']}
         - Result: {state['result']}
-If you are unsure or need to reason about any part of the review, you MUST call the Think tool with a question and the current context before proceeding. Then, provide your concise, bulleted plan of action and next steps.
-You must check that is there any existing API endpoint is changed in the code changes, if there is any API endpoint change, you must include in the plan to check the documentation for the changed API endpoints using the TavilySearch tool to find the relevant documentation and analyze it for any potential impact on the review process And in that case you also need to return API endpoint change flag to true in the response"""
+        If you are unsure or need to reason about any part of the review, you MUST call the Think tool with a question and the current context before proceeding. Then, provide your concise, bulleted plan of action and next steps.
+        You must check that is there any existing API endpoint is changed in the code changes, if there is any API endpoint change, you must include in the plan to check the documentation for the changed API endpoints using the TavilySearch tool to find the relevant documentation and analyze it for any potential impact on the review process And in that case you also need to return API endpoint change flag to true in the response"""
         )
 
         class Plan(TypedDict):

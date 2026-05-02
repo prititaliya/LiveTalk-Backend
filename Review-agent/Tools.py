@@ -57,9 +57,13 @@ def cross_repository_search(query: str) -> str:
     A tool for performing cross-repository search to find relevant information about potential breaking changes and their impact on the current Frontend codebase.
     If there is any API change that can potentially impact the frontend codebase, it should be detected by this tool and the search results should be analyzed to provide insights on the potential impact and suggestions for improvement if needed.
     """
+    depenedent_repo = os.getenv("DEPENDENT_REPO")
+    if not depenedent_repo:
+        return "No dependent repository specified. Please set the DEPENDENT_REPO environment variable to perform cross-repository search. Right now we can not be sure if it would break the frontend or not, so we will assume it does break the frontend. Please set the DEPENDENT_REPO environment variable to perform cross-repository search and get more accurate results."
+    
     print(f"Performing cross-repository search with query: {query}")
     shell_tool = ShellTool()
-    print(shell_tool.run({"commands": ["gh search code /ws/transcripts/ --repo prititaliya/LiveTalk-Fronend", "time"]}))
+    print(shell_tool.run({"commands": ["gh search code /ws/transcripts/ --repo " + depenedent_repo, "time"]}))
     class SearchResult(TypedDict):
         original_query: str
         previous_tried_queries: List[str]
@@ -85,8 +89,8 @@ def cross_repository_search(query: str) -> str:
              If you find information that indicates a potential breaking change with impact on the frontend, set the flag to True. Otherwise, keep it False.
              and reposetory is prititaliya/LiveTalk-Fronend, so that should be the suffix for example
              for query "/ws/transcripts/"
-             it would become "gh search code /ws/transcripts/ --repo prititaliya/LiveTalk-Fronend"
-            """)
+             it would become "gh search code /ws/transcripts/ --repo {depenedent_repo}"
+        """)s
         gen_model = init_chat_model(
                 model="gpt-5.4-mini",
                 model_provider="openai",   
