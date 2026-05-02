@@ -124,7 +124,7 @@ def make_a_patch(search_results: str, state: ReviewState):
     repo_name = os.getenv("DEPENDENT_REPO").strip()  # e.g., "owner/repo"
     github_token = os.getenv("HUB_TOKEN")
 
-    lines= search_results.strip().split("\n")
+    lines= search_results.strip().split(":")
     file_paths = []
     for line in lines:
         if line.startswith(repo_name):
