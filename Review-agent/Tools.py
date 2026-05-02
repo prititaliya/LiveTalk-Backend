@@ -124,11 +124,13 @@ def make_a_patch(search_results: str, state: ReviewState):
     repo_name = os.getenv("DEPENDENT_REPO").strip()  # e.g., "owner/repo"
     github_token = os.getenv("HUB_TOKEN")
 
-    lines= search_results.strip().split(":")
+    # lines= search_results.strip().split(":")
+    # print(f"Search results lines: {lines}")
     file_paths = []
-    for line in lines:
+    for line in search_results.strip().split("\n")  :
         if line.startswith(repo_name):
-            file_path = line.strip().split(" ")[1].strip()
+            print(f"Found relevant line in search results: {line}")
+            file_path = line.strip().split(":")[1].strip()
             file_paths.append(file_path)
    
     headers = {
@@ -221,3 +223,4 @@ def make_a_patch(search_results: str, state: ReviewState):
     else:
             print(f"Pr Request failed: {pr_response.text}")
             return  pr_response.text.message if pr_response.status_code == 201 else "Failed to create PR: " + pr_response.text
+
