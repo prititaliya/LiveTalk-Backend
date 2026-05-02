@@ -123,94 +123,103 @@ def cross_repository_search(query: str,full_state: ReviewState) -> str:
 def make_a_patch(search_results: str, state: ReviewState):
     repo_name = os.getenv("DEPENDENT_REPO").strip()  # e.g., "owner/repo"
     github_token = os.getenv("HUB_TOKEN")
-    file_path = search_results.split(":")[1].strip()
-    print(f"Repo name length: {len(repo_name)}")
-    safe_file_name = file_path.split("/")[-1]
-    branch_name = f"fix/{safe_file_name.replace('.', '-')}"
-    
-    print(f"Making a patch for file: {file_path} in repository: {repo_name}")
 
-    headers = {
-        "Authorization": f"Bearer {github_token}",
-        "Accept": "application/vnd.github+json"
-    }
+    lines= search_results.strip().split("\n")
+    file_paths = []
+    for line in lines:
+        if line.startswith(repo_name):
+            file_path = line.strip().split(" ")[1].strip()
+            file_paths.append(file_path)
+   
 
-    # check if there is already pr exist 
-    pr_check_response = requests.get(f"https://api.github.com/repos/{repo_name}/pulls?head={branch_name}", headers=headers)
-    if pr_check_response.status_code == 200 and len(pr_check_response.json()) > 0:
-        pr_url = pr_check_response.json()[0].get("html_url")
-        print(f"There is probably a PR already exists: {pr_url}")
-        return pr_url
+    for file_path in file_paths:
+        print(f"Repo name length: {len(repo_name)}")
+        safe_file_name = file_path.split("/")[-1]
+        branch_name = f"fix/{safe_file_name.replace('.', '-')}"
+        print(f"Making a patch for file: {file_path} in repository: {repo_name}")
+        print(f"Making a patch for file: {file_path} in repository: {repo_name}")
 
-    print(f"Fetching latest commit SHA for 'main'...")
-    main_response = requests.get(f"https://api.github.com/repos/{repo_name}/git/ref/heads/main", headers=headers)
-    print("Latest commit SHA response:", main_response.json(),f"https://api.github.com/repos/{repo_name}/git/ref/heads/main", headers)
-    main_sha = main_response.json()["object"]["sha"]
+        headers = {
+            "Authorization": f"Bearer {github_token}",
+            "Accept": "application/vnd.github+json"
+        }
 
-    print(f"Creating new branch '{branch_name}'...")
-    requests.post(f"https://api.github.com/repos/{repo_name}/git/refs", headers=headers, json={
-        "ref": f"refs/heads/{branch_name}",
-        "sha": main_sha
-    })
+        # check if there is already pr exist 
+        pr_check_response = requests.get(f"https://api.github.com/repos/{repo_name}/pulls?head={branch_name}", headers=headers)
+        if pr_check_response.status_code == 200 and len(pr_check_response.json()) > 0:
+            pr_url = pr_check_response.json()[0].get("html_url")
+            print(f"There is probably a PR already exists: {pr_url}")
+            return pr_url
 
-    print(f"Fetching file content for {file_path}...")
-    file_url = f"https://api.github.com/repos/{repo_name}/contents/{file_path}?ref={branch_name}"
-    file_response = requests.get(file_url, headers=headers).json()
-    file_sha = file_response["sha"]
-    current_base64 = file_response["content"].replace("\n", "")
-    
-    file_content = base64.b64decode(current_base64).decode("utf-8")
+        print(f"Fetching latest commit SHA for 'main'...")
+        main_response = requests.get(f"https://api.github.com/repos/{repo_name}/git/ref/heads/main", headers=headers)
+        print("Latest commit SHA response:", main_response.json(),f"https://api.github.com/repos/{repo_name}/git/ref/heads/main", headers)
+        main_sha = main_response.json()["object"]["sha"]
 
-    system_prompt = SystemMessage(content=f"""
-        You are a helpful assistant that fixes code based on search results indicating a breaking change. 
-        Your task is to analyze the breaking change and rewrite the provided file to fix it.
-        CRITICAL: Do NOT output a unified diff. Output ONLY the raw, complete, rewritten code for the file. 
-        Do not use markdown code blocks (e.g., ```typescript). Just output the exact text of the new file.
-        Search results: {search_results}
-        Current file content:
-        {file_content}
-    """)
-    human_msg = HumanMessage(content=f"""
-        Please rewrite this file to fix the breaking change. Output ONLY the new file content.
-        check the new code change from the code diff and ge
-        {state['full_diff']}
-    """)
+        print(f"Creating new branch '{branch_name}'...")
+        requests.post(f"https://api.github.com/repos/{repo_name}/git/refs", headers=headers, json={
+            "ref": f"refs/heads/{branch_name}",
+            "sha": main_sha
+        })
 
-    gen_model = init_chat_model(    
-        model="gpt-5.4-mini", 
-        model_provider="openai",   
-        temperature=0.0,
-        api_key=os.getenv("OPENAI_API_KEY")
-    )   
-    
-    print("Asking AI to fix the code...")
-    response = gen_model.invoke([system_prompt, human_msg])
-    new_file_text = response.content
-    if new_file_text.startswith("```"):
-        new_file_text = "\n".join(new_file_text.split("\n")[1:-1])
+        print(f"Fetching file content for {file_path}...")
+        file_url = f"https://api.github.com/repos/{repo_name}/contents/{file_path}?ref={branch_name}"
+        file_response = requests.get(file_url, headers=headers).json()
+        file_sha = file_response["sha"]
+        current_base64 = file_response["content"].replace("\n", "")
+        
+        file_content = base64.b64decode(current_base64).decode("utf-8")
 
-    print("Pushing fixed file to GitHub...")
-    new_base64 = base64.b64encode(new_file_text.encode("utf-8")).decode("utf-8")
-    
-    requests.put(file_url, headers=headers, json={
-        "message": f"Fixing potential breaking change in {safe_file_name}",
-        "content": new_base64,
-        "sha": file_sha,
-        "branch": branch_name
-    })
+        system_prompt = SystemMessage(content=f"""
+            You are a helpful assistant that fixes code based on search results indicating a breaking change. 
+            Your task is to analyze the breaking change and rewrite the provided file to fix it.
+            CRITICAL: Do NOT output a unified diff. Output ONLY the raw, complete, rewritten code for the file. 
+            Do not use markdown code blocks (e.g., ```typescript). Just output the exact text of the new file.
+            Search results: {search_results}
+            Current file content:
+            {file_content}
+        """)
+        human_msg = HumanMessage(content=f"""
+            Please rewrite this file to fix the breaking change. Output ONLY the new file content.
+            check the new code change from the code diff and ge
+            {state['full_diff']}
+        """)
 
-    print("Creating Pull Request...")
-    pr_response = requests.post(f"https://api.github.com/repos/{repo_name}/pulls", headers=headers, json={
-        "title": f"Fixing potential breaking change in {safe_file_name}",
-        "body": f"Automated fix generated by AI Code Reviewer to address backend contract changes.\n\nContext:\n`{search_results}`",
-        "head": branch_name,
-        "base": "main"
-    })
+        gen_model = init_chat_model(    
+            model="gpt-5.4-mini", 
+            model_provider="openai",   
+            temperature=0.0,
+            api_key=os.getenv("OPENAI_API_KEY")
+        )   
+        
+        print("Asking AI to fix the code...")
+        response = gen_model.invoke([system_prompt, human_msg])
+        new_file_text = response.content
+        if new_file_text.startswith("```"):
+            new_file_text = "\n".join(new_file_text.split("\n")[1:-1])
 
-    if pr_response.status_code == 201:
-        pr_url = pr_response.json().get("html_url")
-        print(f"Pr Request created: {pr_url}")
-        return "PR created to fix the potential breaking change: " + pr_url
-    else:
-        print(f"Pr Request failed: {pr_response.text}")
-        return  pr_response.text.message if pr_response.status_code == 201 else "Failed to create PR: " + pr_response.text
+        print("Pushing fixed file to GitHub...")
+        new_base64 = base64.b64encode(new_file_text.encode("utf-8")).decode("utf-8")
+        
+        requests.put(file_url, headers=headers, json={
+            "message": f"Fixing potential breaking change in {safe_file_name}",
+            "content": new_base64,
+            "sha": file_sha,
+            "branch": branch_name
+        })
+
+        print("Creating Pull Request...")
+        pr_response = requests.post(f"https://api.github.com/repos/{repo_name}/pulls", headers=headers, json={
+            "title": f"Fixing potential breaking change in {safe_file_name}",
+            "body": f"Automated fix generated by AI Code Reviewer to address backend contract changes.\n\nContext:\n`{search_results}`",
+            "head": branch_name,
+            "base": "main"
+        })
+
+        if pr_response.status_code == 201:
+            pr_url = pr_response.json().get("html_url")
+            print(f"Pr Request created: {pr_url}")
+            return "PR created to fix the potential breaking change: " + pr_url
+        else:
+            print(f"Pr Request failed: {pr_response.text}")
+            return  pr_response.text.message if pr_response.status_code == 201 else "Failed to create PR: " + pr_response.text
