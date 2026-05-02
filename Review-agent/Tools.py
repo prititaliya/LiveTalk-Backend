@@ -162,6 +162,7 @@ def make_a_patch(search_results: str, state: ReviewState):
         print(f"Fetching file content for {file_path}...")
         file_url = f"https://api.github.com/repos/{repo_name}/contents/{file_path}?ref={branch_name}"
         file_response = requests.get(file_url, headers=headers).json()
+        print(f"File content response for {file_path}:", file_response)
         file_sha = file_response["sha"]
         current_base64 = file_response["content"].replace("\n", "")
         
