@@ -1,0 +1,3 @@
+{
+    prititaliya/LiveTalk-Fronend:Frontend/components/RecordingControls.tsx: const ws = new WebSocket(`${wsUrl}/ws/transcripts/${room}`);
+}
