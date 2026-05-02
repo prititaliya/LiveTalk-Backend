@@ -148,12 +148,13 @@ def make_a_patch(search_results: str, state: ReviewState):
             # now check if pr is from same branch
             if pr_check_response.json()[0].get("head", {}).get("ref") == branch_name:
                 print(f"PR already exists for this change: {pr_url}")
-
+                return pr_url
+    print(f"Fetching latest commit SHA for 'main'...")
+    main_response = requests.get(f"https://api.github.com/repos/{repo_name}/git/ref/heads/main", headers=headers)
+    print("Latest commit SHA response:", main_response.json(),f"https://api.github.com/repos/{repo_name}/git/ref/heads/main", headers)
+    main_sha = main_response.json()["object"]["sha"]
     for file_path in file_paths:
-        print(f"Fetching latest commit SHA for 'main'...")
-        main_response = requests.get(f"https://api.github.com/repos/{repo_name}/git/ref/heads/main", headers=headers)
-        print("Latest commit SHA response:", main_response.json(),f"https://api.github.com/repos/{repo_name}/git/ref/heads/main", headers)
-        main_sha = main_response.json()["object"]["sha"]
+      
 
         print(f"Creating new branch '{branch_name}'...")
         requests.post(f"https://api.github.com/repos/{repo_name}/git/refs", headers=headers, json={
