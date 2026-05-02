@@ -118,9 +118,10 @@ def cross_repository_search(query: str,full_state: ReviewState) -> str:
         response["results"] = response.get("results", []) + [str(search_results)]
 
         if search_results:
-            make_a_patch(search_results, full_state)
-            return "‼️‼️‼️‼️THERE IS BREAKING CHANGE WITH POTENTIAL IMPACT ON FRONTEND, WHICH WOULD IMPACT THE FRONTEND AT: " + str(response["results"])
+            pr_url = make_a_patch(search_results, full_state)
+            return "‼️‼️‼️‼️THERE IS BREAKING CHANGE WITH POTENTIAL IMPACT ON FRONTEND, WHICH WOULD IMPACT THE FRONTEND AT: " + str(response["results"] ) + " AND A PR HAS BEEN CREATED TO FIX THE ISSUE: " + pr_url
     return "NO BREAKING CHANGE DETECTED WITH POTENTIAL IMPACT ON FRONTEND. SEARCH RESULTS: " + str(response["results"])
+
 def make_a_patch(search_results: str, state: ReviewState):
     repo_name = os.getenv("DEPENDENT_REPO")
     github_token = os.getenv("GITHUB_TOKEN") # Make sure this is in your .env!
@@ -203,8 +204,7 @@ def make_a_patch(search_results: str, state: ReviewState):
     if pr_response.status_code == 201:
         pr_url = pr_response.json().get("html_url")
         print(f"Pr Request created: {pr_url}")
+        return "PR created to fix the potential breaking change: " + pr_url
     else:
         print(f"Pr Request failed: {pr_response.text}")
-with open("final_state.txt", 'r') as f:
-    state = f.read()
-make_a_patch("prititaliya/LiveTalk-Fronend:Frontend/components/RecordingControls.tsx: const ws = new WebSocket(`${wsUrl}/ws/transcripts/${room}`);", state = eval(state))
+        return  pr_response.text.message if pr_response.status_code == 201 else "Failed to create PR: " + pr_response.text
