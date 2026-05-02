@@ -63,14 +63,13 @@ def cross_repository_search(query: str) -> str:
     
     print(f"Performing cross-repository search with query: {query}")
     shell_tool = ShellTool()
-    print(shell_tool.run({"commands": ["gh search code /ws/transcripts/ --repo " + depenedent_repo, "time"]}))
     class SearchResult(TypedDict):
         original_query: str
         previous_tried_queries: List[str]
         results: List[str]
         flag: bool
     class QueryResult(TypedDict):
-        query: str
+        query: str 
     state= SearchResult(
         original_query=query,
         previous_tried_queries=[],
@@ -90,7 +89,7 @@ def cross_repository_search(query: str) -> str:
              and reposetory is prititaliya/LiveTalk-Fronend, so that should be the suffix for example
              for query "/ws/transcripts/"
              it would become "gh search code /ws/transcripts/ --repo {depenedent_repo}"
-        """)s
+        """)
         gen_model = init_chat_model(
                 model="gpt-5.4-mini",
                 model_provider="openai",   
