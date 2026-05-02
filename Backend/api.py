@@ -62,7 +62,7 @@ app.include_router(create_remote_control_router(
 app.include_router(create_participant_router())
 
 # WebSocket endpoints
-@app.websocket("/ws/user_transcripts/{room_name}")
+@app.websocket("/ws/transcripts/{room_name}")
 async def websocket_transcripts(websocket: WebSocket, room_name: str):
     """WebSocket endpoint for real-time transcript updates"""
     logger.info(f"WebSocket endpoint called for room: {room_name}")

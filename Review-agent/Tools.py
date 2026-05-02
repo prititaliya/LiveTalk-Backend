@@ -17,7 +17,7 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv()
-
+import requests
 def get_model(temperature: float = 0.0):
         return init_chat_model(
                 model="gpt-5.4-mini",
@@ -121,76 +121,90 @@ def cross_repository_search(query: str,full_state: ReviewState) -> str:
             make_a_patch(search_results, full_state)
             return "‼️‼️‼️‼️THERE IS BREAKING CHANGE WITH POTENTIAL IMPACT ON FRONTEND, WHICH WOULD IMPACT THE FRONTEND AT: " + str(response["results"])
     return "NO BREAKING CHANGE DETECTED WITH POTENTIAL IMPACT ON FRONTEND. SEARCH RESULTS: " + str(response["results"])
-
-
-
 def make_a_patch(search_results: str, state: ReviewState):
     repo_name = os.getenv("DEPENDENT_REPO")
-    file_name = search_results.split(":")[1]  # Assuming the file name is the first word in the search results
-    print(f"Making a patch for file: {file_name} in repository: {repo_name} based on search results: {search_results}")
+    github_token = os.getenv("GITHUB_TOKEN") # Make sure this is in your .env!
+    file_path = search_results.split(":")[1].strip()
+    
+    safe_file_name = file_path.split("/")[-1]
+    branch_name = f"fix/{safe_file_name.replace('.', '-')}"
+    
+    print(f"Making a patch for file: {file_path} in repository: {repo_name}")
 
-    repoSHA_command = f"gh api repos/{repo_name}/git/ref/heads/main"
-    print(f"Fetching latest commit SHA for repository {repo_name} using command: {repoSHA_command}")
-    shell_tool = ShellTool()
-    object_SHa = shell_tool.run({"commands": [repoSHA_command]})
-    repoSHA= json.loads(object_SHa)["object"]["sha"]
-    print(f"Latest commit SHA for repository {repo_name}: {repoSHA}")
+    headers = {
+        "Authorization": f"Bearer {github_token}",
+        "Accept": "application/vnd.github+json"
+    }
 
-    file_command = f"gh api repos/{repo_name}/contents/{file_name}?ref={repoSHA}"
-    print(f"Fetching file content for {file_name} using command: {file_command}")
-    file_content_response = shell_tool.run({"commands": [file_command]})
-    file_content = json.loads(file_content_response)["content"]
-    # base 64 decode the file content
-    file_content = base64.b64decode(file_content).decode("utf-8")
+    print(f"Fetching latest commit SHA for 'main'...")
+    main_response = requests.get(f"https://api.github.com/repos/{repo_name}/git/ref/heads/main", headers=headers)
+    main_sha = main_response.json()["object"]["sha"]
+
+    print(f"Creating new branch '{branch_name}'...")
+    requests.post(f"https://api.github.com/repos/{repo_name}/git/refs", headers=headers, json={
+        "ref": f"refs/heads/{branch_name}",
+        "sha": main_sha
+    })
+
+    print(f"Fetching file content for {file_path}...")
+    file_url = f"https://api.github.com/repos/{repo_name}/contents/{file_path}?ref={branch_name}"
+    file_response = requests.get(file_url, headers=headers).json()
+    file_sha = file_response["sha"]
+    current_base64 = file_response["content"].replace("\n", "")
+    
+    file_content = base64.b64decode(current_base64).decode("utf-8")
 
     system_prompt = SystemMessage(content=f"""
-        You are a helpful assistant that creates a patch for the given file based on the search results indicating a potential breaking change with impact on the frontend. Your task is to analyze the search results, understand the potential breaking change, and generate a patch for the file that addresses the issue.
-        Here are the search results indicating the potential breaking change: {search_results}
-        Here is the current content of the file: {file_content}
-        Based on this information, create a patch that addresses the potential breaking change and ensures compatibility with the frontend. The patch should be in unified diff format and should clearly indicate the changes made to the file.
+        You are a helpful assistant that fixes code based on search results indicating a breaking change. 
+        Your task is to analyze the breaking change and rewrite the provided file to fix it.
+        CRITICAL: Do NOT output a unified diff. Output ONLY the raw, complete, rewritten code for the file. 
+        Do not use markdown code blocks (e.g., ```typescript). Just output the exact text of the new file.
+        Search results: {search_results}
+        Current file content:
+        {file_content}
     """)
     human_msg = HumanMessage(content=f"""
-        Please generate a patch for the file {file_name} based on the search results and the current file content. The patch should address the potential breaking change and ensure compatibility with the frontend. Please provide the patch in unified diff format.
-        I am also providing you the current state of the review process to help you understand the context better: {state}
+        Please rewrite this file to fix the breaking change. Output ONLY the new file content.
+        check the new code change from the code diff and ge
+        {state['full_diff']}
     """)
 
     gen_model = init_chat_model(    
-                model="gpt-5.4-mini",
-                model_provider="openai",   
-                temperature=0.0,
-                api_key=os.getenv("OPENAI_API_KEY")
-            )   
-    response = gen_model.invoke([system_prompt, human_msg])
-    new_branch = f"""
-                    gh api \
-                --method POST \
-                -H "Accept: application/vnd.github+json" \
-                "repos/{repo_name}/git/refs" \
-                -f ref="refs/heads/fix/{file_name}" \
-                -f sha="{repoSHA}" """
-    print(f"Creating a new branch for the patch using command: {new_branch}")
-    shell_tool.run({"commands": [new_branch]})
-    print("checking out the new branch...")
-    shell_tool.run({"commands": [f"git checkout fix/{file_name}"]})
-    print("Applying the patch...")
-    patch_command = f"echo '{response}' | git apply --unidiff-zero --unsafe-paths"
-    print(f"Applying the patch using command: {patch_command}")
-    shell_tool.run({"commands": [patch_command]})
-    print("Committing the changes...")
-    commit_command = f"git commit -am 'Fixing potential breaking change in {file_name} based on search results'"
-    print(f"Committing the changes using command: {commit_command}")
-    shell_tool.run({"commands": [commit_command]})
-    print("Pushing the changes to the new branch...")
-    push_command = f"git push origin fix/{file_name}"
-    print(f"Pushing the changes using command: {push_command}")
-    shell_tool.run({"commands": [push_command]})
-    print(f"Patch for {file_name} has been created and pushed to the new branch fix/{file_name}. Please review the changes and create a pull request to merge the patch into the main branch.")
-    print(f"creating a pull request for the patch...")
-    pr_command = f"""gh pr create --title "Fixing potential breaking change in {file_name}" --body "This pull request addresses a potential breaking change in {file_name} based on the search results indicating a potential impact on the frontend. Please review the changes and merge if everything looks good." --head fix/{file_name} --base main"""
-    print(f"Creating a pull request using command: {pr_command}")
-    shell_tool.run({"commands": [pr_command]})
-
+        model="gpt-5.4-mini", 
+        model_provider="openai",   
+        temperature=0.0,
+        api_key=os.getenv("OPENAI_API_KEY")
+    )   
     
+    print("Asking AI to fix the code...")
+    response = gen_model.invoke([system_prompt, human_msg])
+    new_file_text = response.content
+    if new_file_text.startswith("```"):
+        new_file_text = "\n".join(new_file_text.split("\n")[1:-1])
+
+    print("Pushing fixed file to GitHub...")
+    new_base64 = base64.b64encode(new_file_text.encode("utf-8")).decode("utf-8")
+    
+    requests.put(file_url, headers=headers, json={
+        "message": f"Fixing potential breaking change in {safe_file_name}",
+        "content": new_base64,
+        "sha": file_sha,
+        "branch": branch_name
+    })
+
+    print("Creating Pull Request...")
+    pr_response = requests.post(f"https://api.github.com/repos/{repo_name}/pulls", headers=headers, json={
+        "title": f"Fixing potential breaking change in {safe_file_name}",
+        "body": f"Automated fix generated by AI Code Reviewer to address backend contract changes.\n\nContext:\n`{search_results}`",
+        "head": branch_name,
+        "base": "main"
+    })
+
+    if pr_response.status_code == 201:
+        pr_url = pr_response.json().get("html_url")
+        print(f"Pr Request created: {pr_url}")
+    else:
+        print(f"Pr Request failed: {pr_response.text}")
 with open("final_state.txt", 'r') as f:
     state = f.read()
-make_a_patch("prititaliya/LiveTalk-Fronend:Frontend/components/RecordingControls.tsx: const ws = new WebSocket(`${wsUrl}/ws/transcripts/${room}`);", state)
+make_a_patch("prititaliya/LiveTalk-Fronend:Frontend/components/RecordingControls.tsx: const ws = new WebSocket(`${wsUrl}/ws/transcripts/${room}`);", state = eval(state))
