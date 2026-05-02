@@ -102,7 +102,7 @@ You must check that is there any existing API endpoint is changed in the code ch
     def ReviewFinalize(self, state: ReviewState) -> ReviewState:
 
         gen_model = self.get_model(temperature=0.0).with_structured_output(Summary)
-        response = gen_model.invoke(state)
+        response = gen_model.invoke(str(state))
         print("Review SubAgent 1 Response:", response['summary'])
         state["summary"] = response["summary"]
         state["result"] = response["result"]
