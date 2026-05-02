@@ -122,7 +122,7 @@ def cross_repository_search(query: str,full_state: ReviewState) -> str:
 
 def make_a_patch(search_results: str, state: ReviewState):
     repo_name = os.getenv("DEPENDENT_REPO")
-    github_token = os.getenv("GITHUB_TOKEN") # Make sure this is in your .env!
+    github_token = os.getenv("HUB_TOKEN") # Make sure this is in your .env!
     file_path = search_results.split(":")[1].strip()
     
     safe_file_name = file_path.split("/")[-1]
