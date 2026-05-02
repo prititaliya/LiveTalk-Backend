@@ -137,7 +137,7 @@ def make_a_patch(search_results: str, state: ReviewState):
 
     print(f"Fetching latest commit SHA for 'main'...")
     main_response = requests.get(f"https://api.github.com/repos/{repo_name}/git/ref/heads/main", headers=headers)
-    print("Latest commit SHA response:", main_response.json())
+    print("Latest commit SHA response:", main_response.json(),f"https://api.github.com/repos/{repo_name}/git/ref/heads/main", headers)
     main_sha = main_response.json()["object"]["sha"]
 
     print(f"Creating new branch '{branch_name}'...")
