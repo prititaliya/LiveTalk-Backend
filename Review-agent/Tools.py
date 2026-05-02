@@ -137,6 +137,7 @@ def make_a_patch(search_results: str, state: ReviewState):
 
     print(f"Fetching latest commit SHA for 'main'...")
     main_response = requests.get(f"https://api.github.com/repos/{repo_name}/git/ref/heads/main", headers=headers)
+    print("Latest commit SHA response:", main_response.json())
     main_sha = main_response.json()["object"]["sha"]
 
     print(f"Creating new branch '{branch_name}'...")
@@ -206,3 +207,7 @@ def make_a_patch(search_results: str, state: ReviewState):
     else:
         print(f"Pr Request failed: {pr_response.text}")
         return  pr_response.text.message if pr_response.status_code == 201 else "Failed to create PR: " + pr_response.text
+
+with open("final_state.txt", 'r') as f:
+    state = f.read()
+make_a_patch("prititaliya/LiveTalk-Fronend:Frontend/components/RecordingControls.tsx: const ws = new WebSocket(`${wsUrl}/ws/transcripts/${room}`);", state = eval(state))
