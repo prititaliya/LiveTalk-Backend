@@ -121,10 +121,10 @@ def cross_repository_search(query: str,full_state: ReviewState) -> str:
     return "NO BREAKING CHANGE DETECTED WITH POTENTIAL IMPACT ON FRONTEND. SEARCH RESULTS: " + str(response["results"])
 
 def make_a_patch(search_results: str, state: ReviewState):
-    repo_name = os.getenv("DEPENDENT_REPO")
-    github_token = os.getenv("HUB_TOKEN") # Make sure this is in your .env!
+    repo_name = os.getenv("DEPENDENT_REPO").strip()  # e.g., "owner/repo"
+    github_token = os.getenv("HUB_TOKEN")
     file_path = search_results.split(":")[1].strip()
-    
+    print(f"Repo name length: {len(repo_name)}")
     safe_file_name = file_path.split("/")[-1]
     branch_name = f"fix/{safe_file_name.replace('.', '-')}"
     
