@@ -135,6 +135,13 @@ def make_a_patch(search_results: str, state: ReviewState):
         "Accept": "application/vnd.github+json"
     }
 
+    # check if there is already pr exist 
+    pr_check_response = requests.get(f"https://api.github.com/repos/{repo_name}/pulls?head={branch_name}", headers=headers)
+    if pr_check_response.status_code == 200 and len(pr_check_response.json()) > 0:
+        pr_url = pr_check_response.json()[0].get("html_url")
+        print(f"There is probably a PR already exists: {pr_url}")
+        return pr_url
+
     print(f"Fetching latest commit SHA for 'main'...")
     main_response = requests.get(f"https://api.github.com/repos/{repo_name}/git/ref/heads/main", headers=headers)
     print("Latest commit SHA response:", main_response.json(),f"https://api.github.com/repos/{repo_name}/git/ref/heads/main", headers)
