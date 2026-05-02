@@ -153,15 +153,12 @@ def make_a_patch(search_results: str, state: ReviewState):
     main_response = requests.get(f"https://api.github.com/repos/{repo_name}/git/ref/heads/main", headers=headers)
     print("Latest commit SHA response:", main_response.json(),f"https://api.github.com/repos/{repo_name}/git/ref/heads/main", headers)
     main_sha = main_response.json()["object"]["sha"]
+    print(f"Creating new branch '{branch_name}'...")
+    requests.post(f"https://api.github.com/repos/{repo_name}/git/refs", headers=headers, json={
+        "ref": f"refs/heads/{branch_name}",
+        "sha": main_sha
+    })
     for file_path in file_paths:
-      
-
-        print(f"Creating new branch '{branch_name}'...")
-        requests.post(f"https://api.github.com/repos/{repo_name}/git/refs", headers=headers, json={
-            "ref": f"refs/heads/{branch_name}",
-            "sha": main_sha
-        })
-
         print(f"Fetching file content for {file_path}...")
         file_url = f"https://api.github.com/repos/{repo_name}/contents/{file_path}?ref={branch_name}"
         file_response = requests.get(file_url, headers=headers).json()
