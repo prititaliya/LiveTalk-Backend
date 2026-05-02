@@ -1,3 +1,8 @@
+# Review-agent sample files
+Review-agent/sample_code_diff.txt
+Review-agent/sample_comments.json
+Review-agent/sample_diff_stats.txt
+Review-agent/sample_files_changed.txt
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -96,3 +101,9 @@ secrets/
 
 # Ignore transcripts and recordings (if not needed in repo)
 Backend/transcripts/
+
+# Local review artifacts and bytecode
+Review-agent/__pycache__/ReviewState.cpython-312.pyc
+Review-agent/__pycache__/Tools.cpython-312.pyc
+final_state.txt
+final_summary.md

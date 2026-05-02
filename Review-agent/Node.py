@@ -1,20 +1,29 @@
 from typing import Literal, TypedDict
-from langgraph.graph import StateGraph, START, END
-from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core import messages
+from langchain_core.messages import SystemMessage, HumanMessage,AIMessage,ToolMessage
 from langchain.chat_models import init_chat_model
-from dotenv import load_dotenv
 import os
 from ReviewState import ReviewState, Summary
-from langchain_core.messages import HumanMessage, SystemMessage
-from Tools import think_tool,tavily_search
-class Node:
-    def get_model(self, temperature: float = 0.0):
-        return init_chat_model(
+from langgraph.graph.message import add_messages
+
+from Tools import think_tool,tavily_search, cross_repository_search
+class Node: 
+    def get_model(
+        self,
+        temperature: float = 0.0,
+        bind_tools: bool = False,
+        tool_choice: str | None = None,
+    ):
+        model = init_chat_model(
             model="gpt-5.4-mini",
             model_provider="openai",   
-            temperature=temperature,
+            temperature=temperature, 
             api_key=os.getenv("OPENAI_API_KEY")
-        ).bind_tools([think_tool,tavily_search])
+        )
+        if bind_tools:
+            kwargs = {"tool_choice": tool_choice} if tool_choice else {}
+            return model.bind_tools([think_tool,tavily_search, cross_repository_search], **kwargs)
+        return model
 
     def orchestratorAgent(self, state: ReviewState) -> ReviewState:
         if state["plan"] != "":
@@ -34,27 +43,18 @@ class Node:
         - Plan: {state['plan']}
         - Action: {state['action']}
         - Result: {state['result']}
-If you are unsure or need to reason about any part of the review, you MUST call the Think tool with a question and the current context before proceeding. Then, provide your concise, bulleted plan of action and next steps."""
+        If you are unsure or need to reason about any part of the review, you MUST call the Think tool with a question and the current context before proceeding. Then, provide your concise, bulleted plan of action and next steps.
+        You must check that is there any existing API endpoint is changed in the code changes, if there is any API endpoint change, you must include in the plan to check the documentation for the changed API endpoints using the TavilySearch tool to find the relevant documentation and analyze it for any potential impact on the review process And in that case you also need to return API endpoint change flag to true in the response"""
         )
 
         class Plan(TypedDict):
-                    plan: str
+                plan: str
+                API_Change_Flag: bool
 
         gen_model = self.get_model(temperature=0.0).with_structured_output(Plan)
         response = gen_model.invoke([system_message, human_message])
-        # Always set messages for tool node compatibility
-        state["messages"] = [system_message, human_message]
-        if hasattr(response, "tool_calls") and response.tool_calls:
-            print("Tool calls detected in Orchestrator Agent response:", response.tool_calls)
-            for tool_call in response.tool_calls:
-                if tool_call["name"] == "SubmitPlan":
-                    state["plan"] = tool_call["args"]["plan"]
-                    print("Orchestrator Agent Plan Submitted:", state["plan"])
-                elif tool_call["name"] == "Think":
-                    print("Orchestrator is thinking...")
-        print("Orchestrator Agent Response:", response)
         state["plan"] = response["plan"]
-        print("Orchestrator Agent Response:", state["plan"])
+        state["API_Change_Flag"] = response["API_Change_Flag"]
         state["iteration"] += 1
         return state
     
@@ -65,42 +65,44 @@ If you are unsure or need to reason about any part of the review, you MUST call 
             return f.read()
 
     def ReviewSubAgent1(self, state: ReviewState) -> ReviewState:
-        system_message = SystemMessage(content=self.fetch_prompt())
-        human_message = HumanMessage(
-            content=f"""
-            Your Goal is to work on the given Plan:
-            {state['plan']}
-             and execute it based on the given information about the code changes and comments:
-            Diff Stats: {state['diff_stats']}
-            Code Comments: {state['code_comments']}
-            Code Diff: {state['full_diff']}
-            suggestions for improvement based on the previous comments: {state['comments_review']}
+        messages = state.get("messages", [])
+        if not messages:
+            system_message = SystemMessage(content=self.fetch_prompt())
+            human_message = HumanMessage(
+                content=f"""
+                Your Goal is to work on the given Plan:
+                {state['plan']}
+                and execute it based on the given information about the code changes and comments:
+                Diff Stats: {state['diff_stats']}
+                Code Comments: {state['code_comments']}
+                Code Diff: {state['full_diff']}
+                suggestions for improvement based on the previous comments: {state['comments_review']}
 
-            Based on this information, please create a concise summary of the code changes.
-            **You MUST return all of the following fields in your response:**
-            - summary: A plain English summary of the code changes and issues found.
-            - result: A structured list of findings (bugs, vulnerabilities, etc).
-            - result_markdown: A markdown-formatted version of the result for better readability (include code blocks, tables, etc).
-            - code_suggestions: Suggestions for code improvement based on the previous comments.
-            if you need more thoughts to make a decision, use the Think tool to think through the review process and gather your thoughts before creating the summary and results.
-            Make sure to check the documentations from search tool if you need to find more information about any topic related to the review process.
-            """
-            )
+                Based on this information, please create a concise summary of the code changes.
+                **You MUST return all of the following fields in your response:**
+                - summary: A plain English summary of the code changes and issues found.
+                - result: A structured list of findings (bugs, vulnerabilities, etc).
+                - result_markdown: A markdown-formatted version of the result for better readability (include code blocks, tables, etc).
+                - code_suggestions: Suggestions for code improvement based on the previous comments.
+                if you need more thoughts to make a decision, use the Think tool to think through the review process and gather your thoughts before creating the summary and results.
+                Make sure to check the documentations from search tool if you need to find more information about any topic related to the review process.
+                if there is any API endpoint change, you MUST use the cross_repository_search tool Which takes a query as input (eg. if there is some changes like ws/transcripts/ to ws/user_transcripts/ then it should be ws/transcripts/) so basically it takes old code as input to search across frontend repositories to find relevant information about the change and its potential impact, AND YOU MUST INCLUDE THAT ANALYSIS IN THE FINAL REVIEW AND USE WARNING EMOJI IN THE SUMMARY TO HIGHLIGHT THE POTENTIAL IMPACT OF THE API CHANGE ON THE FRONTEND. AND YOU WILL BE GETTING THE FILE NAME FROM THE TOOLCALL RESULT IN THE MESSAGES, SO MAKE SURE TO USE THAT FILE NAME IN THE QUERY FOR CROSS_REPOSITORY_SEARCH TOOL TO CHECK IF THERE IS ANY POTENTIAL IMPACT ON FRONTEND.
+                """
+                )
+      
+            messages = add_messages(messages, [system_message, human_message])
+
+        response = self.get_model(
+            temperature=0.0,
+            bind_tools=True
+        ).invoke(messages)
+        
+        return {"messages": messages + [response]}
+
+    def ReviewFinalize(self, state: ReviewState) -> ReviewState:
 
         gen_model = self.get_model(temperature=0.0).with_structured_output(Summary)
-        response = gen_model.invoke([system_message, human_message])
-        # Always set messages for tool node compatibility
-        state["messages"] = [system_message, human_message]
-        if hasattr(response, "tool_calls") and response.tool_calls:
-            print("Tool calls detected in ReviewSubAgent1 response:", response.tool_calls)
-            for tool_call in response.tool_calls:
-                if tool_call["name"] == "SubmitPlan":
-                    state["plan"] = tool_call["args"]["plan"]
-                    print("Orchestrator Agent Plan Submitted:", state["plan"])
-                elif tool_call["name"] == "Think":
-                    print("Orchestrator is thinking...")
-                elif tool_call["name"] == "TavilySearch":
-                    print("Orchestrator is searching the web...")
+        response = gen_model.invoke(str(state))
         print("Review SubAgent 1 Response:", response['summary'])
         state["summary"] = response["summary"]
         state["result"] = response["result"]
@@ -142,7 +144,6 @@ If you are unsure or need to reason about any part of the review, you MUST call 
         gen_model = self.get_model(temperature=0).with_structured_output(ReviewDecision)
         response = gen_model.invoke([system_message, human_message])
         state["action"] = response["next_step"]
-      
         return state
 
 
@@ -184,23 +185,20 @@ If you are unsure or need to reason about any part of the review, you MUST call 
     def generate_summary(self, state: ReviewState) -> ReviewState:
         system_message = SystemMessage(
         content=(
-            "You are an agent that generates a final in-depth analysis of the code review process, "
-            "including the results and suggestions for improvement. "
-            "You MUST include a section summarizing the review of PR comments (whether they were addressed or not), "
-            "and do not miss any suggestion for improvement based on the comments. "
-            "Also include a markdown formatted summary of the results for better readability."
+            """
+            You are an agent that generates a final summary of the code review process based on the information provided about the review.  
+            YOU MUST INCLUDE TOOLCALL RESULTS IN THE SUMMARY IF THERE IS ANY TOOL CALL IN THE MESSAGES. """
         )
     )
         human_message = HumanMessage(
             content=f"""Here is the information about the code review process:
-            Plan: {state['plan']}
-            Action: {state['action']}
-            Result: {state['result']}
-            **PR Comments Review:** {state['comments_review']}
-            Based on this information, generate a final summary of the code review process, including:
-            - The results and suggestions for improvement.
-            - A dedicated section for PR comments review (whether they were addressed or not, and any suggestions).
-            - A markdown formatted summary of the results for better readability.
+            {state}
+            Based on this information, generate a final summary of the code review process.
+            Requirements:
+            - Include any tool-call results that are relevant to the findings.
+            - If cross_repository_search found a frontend impact, mention it clearly.
+            - Include a dedicated section for PR comments review.
+            - Return a markdown-formatted summary of the results for better readability.
             """
                 )
 

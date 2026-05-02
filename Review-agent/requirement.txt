@@ -12,3 +12,6 @@ langchain-google-genai
 langchain-deepseek
 langchain-groq
 langchain-tavily
+pygithub
+langchain-community
+langchain-experimental

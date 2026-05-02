@@ -1,5 +1,7 @@
 from pyexpat.errors import messages
-from typing import List, Any, Optional, TypedDict
+from typing import Annotated, List, Any, Optional, TypedDict
+from langchain_core.messages import BaseMessage
+from langgraph.graph.message import add_messages
 
 
 class CommentsReview(TypedDict):
@@ -38,4 +40,5 @@ class ReviewState(TypedDict, total=False):
     thoughts: str
     questions_to_think_through: str
     context_for_thoughts: str
-    messages: Optional[List[Any]]
+    messages: Annotated[list[BaseMessage], add_messages]
+    API_Change_Flag: bool
