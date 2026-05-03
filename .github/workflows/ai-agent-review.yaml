@@ -2,6 +2,12 @@ name: AI Agent Review
 
 on:
   workflow_dispatch:
+    inputs:
+      agent_branch:
+        description: 'Branch of Code-Reviewer to use'
+        required: false
+        default: 'main'
+        type: string
   pull_request:
     types: [opened, synchronize, reopened]
     branches:
@@ -32,20 +38,18 @@ jobs:
 
       - name: Fetch base branch
         run: |
-          git fetch origin ${{ github.event.pull_request.base.ref }} --depth=1
+          git fetch origin ${{ github.event.pull_request.base.ref }}
 
       - name: Generate diff files
         run: |
           git diff --stat origin/${{ github.event.pull_request.base.ref }}...HEAD -- . \
-            ':(exclude)Review-agent/full_diff.txt' \
-            ':(exclude)Review-agent/final_summary.md' \
-            ':(exclude)Review-agent/graph.drawio' \
+            ':(exclude)full_diff.txt' \
+            ':(exclude)final_summary.md' \
             ':(exclude)**/__pycache__/**' > diff_stat.txt
 
           git diff origin/${{ github.event.pull_request.base.ref }}...HEAD -- . \
-            ':(exclude)Review-agent/full_diff.txt' \
-            ':(exclude)Review-agent/final_summary.md' \
-            ':(exclude)Review-agent/graph.drawio' \
+            ':(exclude)full_diff.txt' \
+            ':(exclude)final_summary.md' \
             ':(exclude)**/__pycache__/**' > full_diff.txt
 
       - name: Debug diff info
@@ -54,9 +58,8 @@ jobs:
           echo "Diff size: $(wc -c < full_diff.txt) bytes"
           echo "Changed files:"
           git diff --name-only origin/${{ github.event.pull_request.base.ref }}...HEAD -- . \
-            ':(exclude)Review-agent/full_diff.txt' \
-            ':(exclude)Review-agent/final_summary.md' \
-            ':(exclude)Review-agent/graph.drawio' \
+            ':(exclude)full_diff.txt' \
+            ':(exclude)final_summary.md' \
             ':(exclude)**/__pycache__/**' || true
           echo "Recent commits:"
           git log --oneline --decorate -n 10
@@ -80,10 +83,18 @@ jobs:
       issues: write
 
     steps:
-      - name: Checkout code
+      - name: Checkout target repository code
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Checkout external agent repository
+        uses: actions/checkout@v4
+        with:
+          repository: prititaliya/Code-Reviewer
+          path: Code-Reviewer
+          token: ${{ secrets.AGENT_REPO_PAT }}
+          ref: ${{ inputs.agent_branch || 'main' }}
 
       - name: Download diff artifacts
         uses: actions/download-artifact@v5
@@ -97,7 +108,7 @@ jobs:
           echo "Diff size: $(wc -c < full_diff.txt) bytes"
 
       - name: Install Python dependencies
-        run: pip install -r Review-agent/requirement.txt
+        run: pip install -r Code-Reviewer/requirement.txt
 
       - name: Fetch all PR comments
         env:
@@ -123,7 +134,7 @@ jobs:
           HUB_TOKEN: ${{ secrets.HUB_TOKEN }}
           GH_TOKEN: ${{ secrets.HUB_TOKEN }}
         run: |
-          python3 Review-agent/ai_review_agent.py \
+          python3 Code-Reviewer/ai_review_agent.py \
             --diff-stats-file diff_stat.txt \
             --code-diff-file full_diff.txt \
             --comments-file all_comments.json
@@ -131,7 +142,7 @@ jobs:
 
       - name: Prepend hidden marker to summary
         run: |
-          echo "<!-- ai-review-bot -->" | cat - final_summary.md > temp.md && mv temp.md final_summary.md
+          echo "" | cat - final_summary.md > temp.md && mv temp.md final_summary.md
 
       - name: Find previous bot comment
         id: find-comment
@@ -140,7 +151,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           issue-number: ${{ github.event.pull_request.number }}
           comment-author: github-actions[bot]
-          body-includes: "<!-- ai-review-bot -->"
+          body-includes: ""
 
       - name: Add or overwrite PR comment
         uses: peter-evans/create-or-update-comment@v3
