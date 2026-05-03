@@ -2,6 +2,12 @@ name: AI Agent Review
 
 on:
   workflow_dispatch:
+    inputs:
+      agent_branch:
+        description: 'Branch of Code-Reviewer to use'
+        required: false
+        default: 'main'
+        type: string
   pull_request:
     types: [opened, synchronize, reopened]
     branches:
@@ -87,6 +93,8 @@ jobs:
         with:
           repository: prititaliya/Code-Reviewer
           path: Code-Reviewer
+          token: ${{ secrets.AGENT_REPO_PAT }}
+          ref: ${{ inputs.agent_branch || 'main' }}
 
       - name: Download diff artifacts
         uses: actions/download-artifact@v5
