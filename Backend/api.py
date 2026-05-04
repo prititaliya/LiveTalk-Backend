@@ -73,7 +73,7 @@ async def websocket_transcripts(websocket: WebSocket, room_name: str):
         raise
 
 
-@app.websocket("/ws/remote_session/{session_token}")
+@app.websocket("/ws/remote_user_session/{session_token}")
 async def websocket_remote_control(websocket: WebSocket, session_token: str):
     """WebSocket endpoint for remote recording control"""
     logger.info(f"Remote control WebSocket endpoint called for session token")
